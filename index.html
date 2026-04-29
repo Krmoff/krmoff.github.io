@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Krmoff</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #003300;
+    --surface: rgba(0,51,0,0.82);
+    --surface2: rgba(0,77,0,0.9);
+    --border: rgba(0,255,255,0.13);
+    --border-hover: rgba(0,255,255,0.32);
+    --text: #f5eef5;
+    --muted: #9a7d96;
+    --accent: #00FFFF;
+    --accent-dim: rgba(0,255,255,0.12);
+    --accent-glow: rgba(0,255,255,0.28);
+    --accent-soft: #80FFFF;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+
+  /* ── FLOATING MUSIC BUTTON ── */
+  #music-btn {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    border: 1.5px solid var(--accent-glow);
+    box-shadow: 0 0 18px rgba(255,110,180,0.25);
+    display: flex; align-items: center; justify-content: center;
+    cursor: none;
+    z-index: 1000;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  #music-btn:hover {
+    background: rgba(255,110,180,0.22);
+    box-shadow: 0 0 30px rgba(255,110,180,0.45);
+    transform: scale(1.08);
+  }
+
+  #music-icon {
+    font-size: 22px;
+    color: var(--accent);
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+    transition: transform 0.2s;
+    user-select: none;
+  }
+
+  #music-btn.playing #music-icon {
+    animation: noteFloat 1.8s ease-in-out infinite;
+  }
+
+  #music-btn.playing {
+    box-shadow: 0 0 28px rgba(255,110,180,0.5), 0 0 60px rgba(255,110,180,0.15);
+    border-color: rgba(255,110,180,0.55);
+  }
+
+  #music-ripple {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(255,110,180,0.15);
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  #music-btn.playing #music-ripple {
+    animation: ripplePulse 2s ease-out infinite;
+  }
+
+
+  @keyframes noteFloat {
+    0%, 100% { transform: translateY(0) rotate(-5deg); }
+    50% { transform: translateY(-4px) rotate(5deg); }
+  }
+
+  @keyframes ripplePulse {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+
+  *, *::before, *::after { cursor: none !important; }
+
+  #cursor-dot, #cursor-ring {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.3s;
+  }
+
+  #cursor-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent), 0 0 20px rgba(255,110,180,0.5);
+    transition: transform 0.08s ease, opacity 0.3s;
+  }
+
+  #cursor-ring {
+    width: 32px; height: 32px;
+    border: 1.5px solid rgba(255,110,180,0.6);
+    background: rgba(255,110,180,0.05);
+    transition: width 0.2s ease, height 0.2s ease, border-color 0.2s, transform 0.12s ease, opacity 0.3s;
+  }
+
+  body.cursor-hover #cursor-dot {
+    transform: translate(-50%, -50%) scale(1.5);
+    background: #fff;
+    box-shadow: 0 0 12px var(--accent), 0 0 28px rgba(255,110,180,0.7);
+  }
+
+  body.cursor-hover #cursor-ring {
+    width: 44px; height: 44px;
+    border-color: rgba(255,110,180,0.9);
+    background: rgba(255,110,180,0.08);
+  }
+
+  html, body {
+    min-height: 100%;
+    background: #000000;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  #blossom-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #bg-img { display: none; }
+
+  body::after { display: none; }
+
+  .wrapper {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.25rem;
+  }
+
+  .page { display: none; width: 100%; max-width: 480px; animation: fadeUp 0.4s ease both; }
+  .page.active { display: flex; flex-direction: column; }
+  #page-home { max-width: 480px; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes textGlow {
+    from { text-shadow: 0 0 5px var(--accent), 0 0 10px var(--accent), 0 0 15px var(--accent); }
+    to { text-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent), 0 0 30px var(--accent); }
+  }
+
+  /* Mobile: stacked (default) */
+  .home-inner { display: flex; flex-direction: column; width: 100%; }
+  .home-left { display: flex; flex-direction: column; }
+
+  .home-avatar {
+    width: 76px; height: 76px; border-radius: 50%;
+    background: var(--accent-dim);
+    border: 1.5px solid var(--accent-glow);
+    box-shadow: 0 0 28px rgba(255,110,180,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 28px; font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+  }
+
+  .home-avatar img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .home-name {
+    font-family: var(--font-display);
+    font-size: 38px; font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  .home-name span { color: var(--accent); }
+
+  .home-bio {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.8;
+    margin-bottom: 2rem;
+    max-width: 400px;
+  }
+
+  /* Mobile: 2-col grid */
+  .nav-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  /* Desktop: side-by-side */
+  @media (min-width: 780px) {
+    .wrapper { padding: 3rem 2.5rem; }
+    #page-home { max-width: 860px; }
+
+    .home-inner {
+      align-items: center;
+      align-items: center;
+      gap: 3.5rem;
+    }
+
+    .home-left { flex: 1; min-width: 0; }
+    .home-bio { margin-bottom: 0; max-width: 100%; }
+
+    .home-right { flex-shrink: 0; width: 200px; }
+
+    .nav-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .nav-btn { justify-content: flex-start; }
+  }
+
+  .nav-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 15px 18px;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-glow);
+    border-radius: 14px;
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, transform 0.12s, box-shadow 0.18s;
+    text-decoration: none;
+    user-select: none;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .nav-btn:hover {
+    background: rgba(255,110,180,0.2);
+    border-color: rgba(255,110,180,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 28px rgba(255,110,180,0.24);
+  }
+
+  .nav-btn:active { transform: scale(0.97); }
+
+  .nav-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+  .page-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 1.75rem;
+  }
+
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    flex-shrink: 0;
+    color: var(--muted);
+  }
+
+  .back-btn:hover { background: var(--surface2); border-color: var(--border-hover); color: var(--accent); }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .social-list { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+
+  .social-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 14px; font-weight: 500;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .social-item:hover {
+    background: var(--surface2);
+    border-color: var(--border-hover);
+    transform: translateX(5px);
+    box-shadow: 0 2px 18px rgba(255,110,180,0.11);
+  }
+
+  .social-icon-wrap {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .arrow {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 16px;
+    transition: transform 0.15s, color 0.15s;
+  }
+
+  .social-item:hover .arrow { transform: translateX(3px); color: var(--accent); }
+
+  .social-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
+  .social-handle { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .info-badge {
+    display: inline-block;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-glow);
+    border-radius: 6px;
+    padding: 3px 10px;
+    margin-bottom: 1rem;
+    font-family: var(--font-display);
+  }
+
+  .info-text { font-size: 14px; color: var(--muted); line-height: 1.8; }
+
+  .foot { margin-top: 2.5rem; font-size: 12px; color: var(--muted); text-align: center; letter-spacing: 0.04em; }
+  .foot span { color: var(--accent); }
+  .back-link { cursor: pointer; color: var(--accent); }
+  .back-link:hover { color: var(--accent-soft); }
+</style>
+</head>
+<body>
+
+<canvas id="blossom-canvas"></canvas>
+
+<!-- Custom cursor -->
+<div id="cursor-ring"></div>
+<div id="cursor-dot"></div>
+
+<!-- Floating music button (Spotify play / pause) -->
+<div id="music-btn" onclick="toggleMusic()" title="Play / Pause">
+  <span id="music-icon">♪</span>
+  <div id="music-ripple"></div>
+</div>
+<iframe
+  id="spotify-hidden"
+  src=""
+  data-src="https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator&theme=0"
+  width="0"
+  height="0"
+  frameborder="0"
+  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+  style="position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;">
+</iframe>
+
+<div class="wrapper">
+
+  <!-- HOME -->
+  <div class="page active" id="page-home">
+    <div class="home-inner">
+      <div class="home-left">
+        <div class="home-avatar"><img src="pp.jpg" alt="Krmoff"></div>
+        <div class="home-name" style="animation: textGlow 2s ease-in-out infinite alternate;">Krmoff</div>
+        <p class="home-bio">
+          Salam, mən Emre! 19 yaşım var. Proqramlaşdırma dünyasına marağım böyükdür, vaxtımın çoxunu kod yazaraq və yeni texnologiyaları kəşf edərək keçirirəm.<br><br>
+          Boş vaxtlarımda oyunlar oynayıram və musiqi dinləyirəm. Hər zaman yeni layihələr üzərində işləməyə və öz bacarıqlarımı inkişaf etdirməyə çalışıram.<br><br>
+          Sosyal mediada mənimlə əlaqə saxlamaq istəyirsinizsə, aşağıdakı düyməni istifadə edərək mənə müraciət edə bilərsiniz!
+        </p>
+      </div>
+      <div class="home-right">
+        <div class="nav-grid">
+          <button class="nav-btn accent" onclick="showPage('socials')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Socials
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="foot">made by · Krmoff <span>♥</span></div>
+  </div>
+
+  <!-- SOCIALS -->
+  <div class="page" id="page-socials">
+    <div class="page-header">
+      <button class="back-btn" onclick="showPage('home')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="page-title">Socials</div>
+    </div>
+    <!--
+      ═══════════════════════════════════════════════
+        SOCIAL LINKS — easy to edit!
+        Just replace the href="..." URLs below.
+      ═══════════════════════════════════════════════
+    -->
+    <div class="social-list">
+
+      <a class="social-item" href="https://instagram.com/_krmoff" target="_blank">
+        <div class="social-icon-wrap" style="background:rgba(255,0,150,0.12);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff0096"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+        </div>
+        <div>
+          <div class="social-name">Instagram</div>
+          <div class="social-handle">@_krmoff</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+
+      <a class="social-item" href="https://tiktok.com/@_krmoff" target="_blank">
+        <div class="social-icon-wrap" style="background:rgba(255,0,80,0.12);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff0050"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg>
+        </div>
+        <div>
+          <div class="social-name">TikTok</div>
+          <div class="social-handle">@_krmoff</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+
+      <a class="social-item" href="https://x.com/Krmoff1" target="_blank">
+        <div class="social-icon-wrap" style="background:rgba(0,0,0,0.12);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </div>
+        <div>
+          <div class="social-name">X (Twitter)</div>
+          <div class="social-handle">@Krmoff1</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+
+      <a class="social-item" href="https://discord.gg/wuck6k4K4h" target="_blank">
+        <div class="social-icon-wrap" style="background:rgba(88,101,242,0.12);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#5865f2"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.445.864-.608 1.25-1.845-.276-3.68-.276-5.487 0-.163-.393-.397-.875-.608-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 11.674 11.674 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 10.87 10.87 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106c-.653-.247-1.274-.55-1.872-.893a.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 11.59 11.59 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.955 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.955 2.418-2.157 2.418z"/></svg>
+        </div>
+        <div>
+          <div class="social-name">Discord</div>
+          <div class="social-handle">Join server</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+
+    </div>
+    <div class="foot">← <span class="back-link" onclick="showPage('home')">back home</span></div>
+  </div>
+
+  <!-- MODRINTH -->
+  <div class="page" id="page-modrinth">
+    <div class="page-header">
+      <button class="back-btn" onclick="showPage('home')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="page-title">Modrinth</div>
+    </div>
+    <div class="info-card">
+      <div class="info-badge">Coming soon</div>
+      <p class="info-text">Krmoff's Modrinth page is on the way. Check back soon for mods, modpacks, and resources.</p>
+    </div>
+    <div class="foot">← <span class="back-link" onclick="showPage('home')">back home</span></div>
+  </div>
+
+  <!-- WEBSITE INFO -->
+  <div class="page" id="page-info">
+    <div class="page-header">
+      <button class="back-btn" onclick="showPage('home')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="page-title">Website Info</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function openDiscord() {
+    window.open('https://discord.gg/wuck6k4K4h', '_blank');
+  }
+
+  // ── FALLING PETALS ONLY (image is the background) ──
+  const canvas = document.getElementById('blossom-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Spawn a petal from the top of the screen (weighted toward top area where branches are)
+  function spawnPetal() {
+    return {
+      x: Math.random() * canvas.width,
+      y: -20 - Math.random() * 80,
+      w: 9  + Math.random() * 11,
+      h: 13 + Math.random() * 15,
+      vy: 0.7 + Math.random() * 1.3,
+      vx: -0.8 + Math.random() * 1.6,
+      spin: (Math.random() - 0.5) * 0.04,
+      angle: Math.random() * Math.PI * 2,
+      alpha: 0.4 + Math.random() * 0.5,
+      wobble: Math.random() * Math.PI * 2,
+      wobbleSpeed: 0.007 + Math.random() * 0.013,
+      wobbleAmp:   0.5   + Math.random() * 1.6,
+    };
+  }
+
+  function drawFallingPetal(p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+    ctx.globalAlpha = p.alpha;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -p.h / 2);
+    ctx.bezierCurveTo( p.w / 2, -p.h / 4,  p.w / 2,  p.h / 4, 0,  p.h / 2);
+    ctx.bezierCurveTo(-p.w / 2,  p.h / 4, -p.w / 2, -p.h / 4, 0, -p.h / 2);
+
+    const g = ctx.createLinearGradient(0, -p.h/2, 0, p.h/2);
+    g.addColorStop(0,   'rgba(0,255,255,0.97)');
+    g.addColorStop(0.5, 'rgba(0,200,150,0.88)');
+    g.addColorStop(1,   'rgba(0,128,0,0.72)');
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(0, -p.h / 2);
+    ctx.lineTo(0,  p.h / 2);
+    ctx.strokeStyle = 'rgba(0,150,100,0.30)';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  const PETAL_COUNT = 60;
+  const petals = Array.from({ length: PETAL_COUNT }, () => {
+    const p = spawnPetal();
+    p.y = Math.random() * canvas.height; // scatter initially
+    return p;
+  });
+
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const H = canvas.height, W = canvas.width;
+    petals.forEach(p => {
+      p.wobble += p.wobbleSpeed;
+      p.x += p.vx + Math.sin(p.wobble) * p.wobbleAmp;
+      p.y += p.vy;
+      p.angle += p.spin;
+      if (p.y > H + 25) Object.assign(p, spawnPetal());
+      if (p.x < -25) p.x = W + 25;
+      if (p.x > W + 25) p.x = -25;
+      drawFallingPetal(p);
+    });
+    requestAnimationFrame(tick);
+  }
+  // ── SIMPLE SPOTIFY EMBED PLAYER (HIDDEN IFRAME + BUTTON) ──
+  const musicBtn = document.getElementById('music-btn');
+  const musicIcon = document.getElementById('music-icon');
+  const spotifyFrame = document.getElementById('spotify-hidden');
+  let musicPlaying = false;
+
+  // Buraya kendi Spotify playlist EMBED linkini yazabilirsin:
+  // Örnek normal playlist linki:
+  //   https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
+  // Bunu embed'e çevirmek için:
+  //   https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M
+  //
+  // Aşağıdaki data-src'deki linki direkt index.html içinden değiştirebilirsin.
+
+  function toggleMusic() {
+    if (!musicPlaying) {
+      // Başlat: iframe'e embed src ver (autoplay)
+      if (!spotifyFrame.src || spotifyFrame.src === window.location.href) {
+        spotifyFrame.src = spotifyFrame.dataset.src;
+      }
+      musicPlaying = true;
+      musicBtn.classList.add('playing');
+      musicIcon.textContent = '♫';
+    } else {
+      // Durdur: src'yi temizle (şarkı sıfırdan başlar)
+      spotifyFrame.src = 'https://open.spotify.com/track/2QjOHCTQ1Jl3zawyYOpxh6?si=70aef0eda3574a17' +
+                        'https://open.spotify.com/track/0BxE4FqsDD1Ot4YuBXwAPp?si=6e2127c141674934' +
+                        'https://open.spotify.com/track/2Ch7LmS7r2Gy2kc64wv3Bz?si=aaf83c79275b4d6e' +
+                        'https://open.spotify.com/track/5XeFesFbtLpXzIVDNQP22n?si=66b5731bd4c8454c' +
+                        'https://open.spotify.com/track/2AT8iROs4FQueDv2c8q2KE?si=4f1e186e3b3a4289' +
+                        'https://open.spotify.com/track/1oAwsWBovWRIp7qLMGPIet?si=229cd18952ce488f' +
+                        'https://open.spotify.com/track/7MlDNspYwfqnHxORufupwq?si=ecfbcc1fe7dd4ae8' +
+                        'https://open.spotify.com/track/6QeYSvYqYUsfBzsApbjDHO?si=fac1ca797cde4592' +
+                        'https://open.spotify.com/track/6CKoWCWAqEVWVjpeoJXyNH?si=56f44068c14547b1';
+      musicPlaying = false;
+      musicBtn.classList.remove('playing');
+      musicIcon.textContent = '♪';
+    }
+  }
+
+  // Add hover class for cursor on music button
+  musicBtn.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+  musicBtn.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+
+  tick();
+
+  // ── CUSTOM CURSOR ──
+  const dot  = document.getElementById('cursor-dot');
+  const ring = document.getElementById('cursor-ring');
+  let mx = -100, my = -100, rx = -100, ry = -100;
+
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+  (function animCursor() {
+    rx += (mx - rx) * 0.13;
+    ry += (my - ry) * 0.13;
+    dot.style.left  = mx + 'px';
+    dot.style.top   = my + 'px';
+    ring.style.left = rx + 'px';
+    ring.style.top  = ry + 'px';
+    requestAnimationFrame(animCursor);
+  })();
+
+  const hoverEls = 'a, button, [onclick], input, textarea, select, label';
+  document.querySelectorAll(hoverEls).forEach(el => {
+    el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+    el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+  });
+
+  document.addEventListener('mouseleave', () => { dot.style.opacity = '0'; ring.style.opacity = '0'; });
+  document.addEventListener('mouseenter', () => { dot.style.opacity = '1'; ring.style.opacity = '1'; });
+</script>
+</body>
+</html>
